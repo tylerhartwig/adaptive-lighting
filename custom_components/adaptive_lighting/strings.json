@@ -27,7 +27,6 @@
         "description": "Configure an Adaptive Lighting component. Option names align with the YAML settings. If you've defined this entry in YAML, no options will appear here. For interactive graphs that demonstrate parameter effects, visit [this web app]({webapp_url}). For further details, see the [official documentation]({docs_url}).",
         "data": {
           "lights": "lights: List of light entity_ids to be controlled (may be empty). 🌟",
-          "skip_light_groups": "skip_light_groups: List of light groups that should NOT be expanded (e.g., Lightener groups). 🚫",
           "interval": "interval",
           "transition": "transition",
           "initial_transition": "initial_transition",
