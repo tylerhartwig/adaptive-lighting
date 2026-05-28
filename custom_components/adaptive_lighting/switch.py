@@ -859,6 +859,7 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         data = validate(config_entry)
 
         self._name = data[CONF_NAME]
+        self._interval: timedelta = data[CONF_INTERVAL]
         self._config_lights: list[str] = data[CONF_LIGHTS]
         self.lights: list[str] = self._config_lights
         self.skip_light_groups: list[str] = data.get(
