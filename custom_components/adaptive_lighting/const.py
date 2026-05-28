@@ -34,6 +34,9 @@ DOCS[CONF_NAME] = "Display name for this switch. 📝"
 CONF_LIGHTS, DEFAULT_LIGHTS = "lights", []
 DOCS[CONF_LIGHTS] = "List of light entity_ids to be controlled (may be empty). 🌟"
 
+CONF_SKIP_LIGHT_GROUPS, DEFAULT_SKIP_LIGHT_GROUPS = "skip_light_groups", []
+DOCS[CONF_SKIP_LIGHT_GROUPS] = "List of light groups that should NOT be expanded (e.g., Lightener groups). 🚫"
+
 CONF_DETECT_NON_HA_CHANGES, DEFAULT_DETECT_NON_HA_CHANGES = (
     "detect_non_ha_changes",
     False,

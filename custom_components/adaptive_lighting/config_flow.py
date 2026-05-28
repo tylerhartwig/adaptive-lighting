@@ -11,6 +11,8 @@ from homeassistant.helpers.selector import EntitySelector, EntitySelectorConfig
 
 from .const import (  # pylint: disable=unused-import
     CONF_LIGHTS,
+    CONF_SKIP_LIGHT_GROUPS,
+    DEFAULT_SKIP_LIGHT_GROUPS,
     DOMAIN,
     EXTRA_VALIDATION,
     NONE_STR,
@@ -156,6 +158,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
         to_replace: dict[str, Any] = {
             CONF_LIGHTS: EntitySelector(
+                EntitySelectorConfig(
+                    domain="light",
+                    multiple=True,
+                ),
+            ),
+            CONF_SKIP_LIGHT_GROUPS: EntitySelector(
                 EntitySelectorConfig(
                     domain="light",
                     multiple=True,

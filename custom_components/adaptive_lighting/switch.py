@@ -116,6 +116,7 @@ from .const import (
     CONF_PREFER_RGB_COLOR,
     CONF_SEND_SPLIT_DELAY,
     CONF_SEPARATE_TURN_ON_COMMANDS,
+    CONF_SKIP_LIGHT_GROUPS,
     CONF_SKIP_REDUNDANT_COMMANDS,
     CONF_SLEEP_BRIGHTNESS,
     CONF_SLEEP_COLOR_TEMP,
@@ -131,6 +132,7 @@ from .const import (
     CONF_TRANSITION,
     CONF_TURN_ON_LIGHTS,
     CONF_USE_DEFAULTS,
+    DEFAULT_SKIP_LIGHT_GROUPS,
     DOMAIN,
     EXTRA_VALIDATION,
     ICON_BRIGHTNESS,
@@ -588,6 +590,7 @@ def _is_state_event(
 def _expand_light_groups(
     hass: HomeAssistant,
     lights: list[str],
+    skip_light_groups: list[str] | None = None,
 ) -> list[str]:
     all_lights: set[str] = set()
     manager = hass.data[DOMAIN][ATTR_ADAPTIVE_LIGHTING_MANAGER]
@@ -596,13 +599,20 @@ def _expand_light_groups(
         if state is None:
             _LOGGER.debug("State of %s is None", light)
             all_lights.add(light)
-        elif _is_light_group(state):
+        elif (
+            _is_light_group(state)
+            and not (skip_light_groups and light in skip_light_groups)
+        ):
             group = state.attributes["entity_id"]
             manager.lights.discard(light)
             all_lights.update(group)
             _LOGGER.debug("Expanded %s to %s", light, group)
         else:
             all_lights.add(light)
+            if state and "entity_id" in state.attributes:
+                for child in state.attributes["entity_id"]:
+                    if isinstance(child, str):
+                        manager.child_to_parent[child] = light
     return sorted(all_lights)
 
 
@@ -849,8 +859,12 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         data = validate(config_entry)
 
         self._name = data[CONF_NAME]
-        self._interval: timedelta = data[CONF_INTERVAL]
-        self.lights: list[str] = data[CONF_LIGHTS]
+        self._config_lights: list[str] = data[CONF_LIGHTS]
+        self.lights: list[str] = self._config_lights
+        self.skip_light_groups: list[str] = data.get(
+            CONF_SKIP_LIGHT_GROUPS,
+            DEFAULT_SKIP_LIGHT_GROUPS,
+        )
 
         # backup data for use in change_switch_settings "configuration" CONF_USE_DEFAULTS
         self._config_backup = deepcopy(data)
@@ -1026,8 +1040,9 @@ class AdaptiveSwitch(SwitchEntity, RestoreEntity):
         self._remove_listeners()
 
     def _expand_light_groups(self, hass: HomeAssistant | None = None) -> None:
+        """Expand light groups."""
         hass = hass or self.hass
-        all_lights = _expand_light_groups(hass, self.lights)
+        all_lights = _expand_light_groups(hass, self._config_lights, self.skip_light_groups)
         self.manager.lights.update(all_lights)
         self.manager.set_auto_reset_manual_control_times(
             all_lights,
@@ -1713,6 +1728,8 @@ class AdaptiveLightingManager:
         self.turn_off_locks: dict[str, asyncio.Lock] = {}
         # Tracks which lights are manually controlled
         self.manual_control: dict[str, LightControlAttributes] = {}
+        # Track child to parent for unexpanded groups
+        self.child_to_parent: dict[str, str] = {}
         # Track 'state_changed' events of self.lights resulting from this integration
         self.our_last_state_on_change: dict[str, list[State]] = {}
         # Track last 'service_data' to 'light.turn_on' resulting from this integration
@@ -2468,6 +2485,11 @@ class AdaptiveLightingManager:
     ) -> None:
         """Track 'state_changed' events."""
         entity_id = event.data.get(ATTR_ENTITY_ID, "")
+        
+        # If a child of an unexpanded group changes, map it to the parent
+        if getattr(self, "child_to_parent", None) and entity_id in self.child_to_parent:
+            entity_id = self.child_to_parent[entity_id]
+
         if entity_id not in self.lights:
             return
 
