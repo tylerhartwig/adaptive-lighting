@@ -325,6 +325,7 @@ def int_between(min_int: int, max_int: int) -> vol.All:
 
 VALIDATION_TUPLES: list[tuple[str, Any, Any]] = [
     (CONF_LIGHTS, DEFAULT_LIGHTS, cv.entity_ids),  # type: ignore[arg-type]
+    (CONF_SKIP_LIGHT_GROUPS, DEFAULT_SKIP_LIGHT_GROUPS, cv.entity_ids),  # type: ignore[arg-type]
     (CONF_INTERVAL, DEFAULT_INTERVAL, cv.positive_int),
     (CONF_TRANSITION, DEFAULT_TRANSITION, VALID_TRANSITION),
     (CONF_INITIAL_TRANSITION, DEFAULT_INITIAL_TRANSITION, VALID_TRANSITION),
