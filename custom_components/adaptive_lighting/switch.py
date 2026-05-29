@@ -609,10 +609,6 @@ def _expand_light_groups(
             _LOGGER.debug("Expanded %s to %s", light, group)
         else:
             all_lights.add(light)
-            if state and "entity_id" in state.attributes:
-                for child in state.attributes["entity_id"]:
-                    if isinstance(child, str):
-                        manager.child_to_parent[child] = light
     return sorted(all_lights)
 
 
@@ -1729,8 +1725,6 @@ class AdaptiveLightingManager:
         self.turn_off_locks: dict[str, asyncio.Lock] = {}
         # Tracks which lights are manually controlled
         self.manual_control: dict[str, LightControlAttributes] = {}
-        # Track child to parent for unexpanded groups
-        self.child_to_parent: dict[str, str] = {}
         # Track 'state_changed' events of self.lights resulting from this integration
         self.our_last_state_on_change: dict[str, list[State]] = {}
         # Track last 'service_data' to 'light.turn_on' resulting from this integration
@@ -2486,10 +2480,6 @@ class AdaptiveLightingManager:
     ) -> None:
         """Track 'state_changed' events."""
         entity_id = event.data.get(ATTR_ENTITY_ID, "")
-        
-        # If a child of an unexpanded group changes, map it to the parent
-        if getattr(self, "child_to_parent", None) and entity_id in self.child_to_parent:
-            entity_id = self.child_to_parent[entity_id]
 
         if entity_id not in self.lights:
             return
