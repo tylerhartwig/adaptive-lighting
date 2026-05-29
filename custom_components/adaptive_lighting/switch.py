@@ -609,6 +609,12 @@ def _expand_light_groups(
             _LOGGER.debug("Expanded %s to %s", light, group)
         else:
             all_lights.add(light)
+            if state and "entity_id" in state.attributes:
+                for child in state.attributes["entity_id"]:
+                    if isinstance(child, str):
+                        if not hasattr(manager, "child_to_parent"):
+                            manager.child_to_parent = {}
+                        manager.child_to_parent[child] = light
     return sorted(all_lights)
 
 
@@ -1725,6 +1731,8 @@ class AdaptiveLightingManager:
         self.turn_off_locks: dict[str, asyncio.Lock] = {}
         # Tracks which lights are manually controlled
         self.manual_control: dict[str, LightControlAttributes] = {}
+        # Track child to parent for unexpanded groups
+        self.child_to_parent: dict[str, str] = {}
         # Track 'state_changed' events of self.lights resulting from this integration
         self.our_last_state_on_change: dict[str, list[State]] = {}
         # Track last 'service_data' to 'light.turn_on' resulting from this integration
@@ -2480,6 +2488,30 @@ class AdaptiveLightingManager:
     ) -> None:
         """Track 'state_changed' events."""
         entity_id = event.data.get(ATTR_ENTITY_ID, "")
+
+        if getattr(self, "child_to_parent", None) and entity_id in self.child_to_parent:
+            parent_id = self.child_to_parent[entity_id]
+            if parent_id in self.lights:
+                # Ignore events originating from Adaptive Lighting
+                if is_our_context_id(event.context.id) or is_our_context_id(event.context.parent_id):
+                    return
+                # Ignore events originating from the parent's most recent change (Lightener propagation)
+                parent_state = self.hass.states.get(parent_id)
+                if parent_state and parent_state.context.id == event.context.id:
+                    return
+
+                is_ha_manual = event.context.user_id is not None or event.context.parent_id is not None
+                old_state = event.data.get("old_state")
+                new_state = event.data.get("new_state")
+                is_turn_off = old_state and old_state.state == STATE_ON and new_state and new_state.state == STATE_OFF
+
+                if is_ha_manual or is_turn_off:
+                    _LOGGER.debug("Child %s manually controlled, flagging parent %s", entity_id, parent_id)
+                    self.set_manual_control_attributes(
+                        parent_id,
+                        LightControlAttributes.BRIGHTNESS | LightControlAttributes.COLOR
+                    )
+            return
 
         if entity_id not in self.lights:
             return
